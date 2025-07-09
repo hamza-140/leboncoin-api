@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+scrapy
+requests
+python-dotenv

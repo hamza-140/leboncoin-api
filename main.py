@@ -4,11 +4,17 @@ import requests
 from scrapy import Selector
 import json
 import time
+import os
+from dotenv import load_dotenv
 import urllib3
+
+# Load .env if exists (for local development)
+load_dotenv()
 
 urllib3.disable_warnings()
 
 app = FastAPI()
+
 
 class ScrapeRequest(BaseModel):
     url: HttpUrl
@@ -20,8 +26,13 @@ class ScrapeRequest(BaseModel):
 def scrape_leboncoin(data: ScrapeRequest):
     url = str(data.url)
 
+    # Load proxy from environment variable
+    proxy_url = os.environ.get("ZYTE_PROXY_URL")
+    if not proxy_url:
+        raise HTTPException(status_code=500, detail="ZYTE_PROXY_URL not set in environment.")
+
     proxies = {
-        scheme: "http://d57d54756b874e22a4ffa3f4a25d64b9:@api.zyte.com:8011"
+        scheme: proxy_url
         for scheme in ("http", "https")
     }
 
@@ -51,7 +62,7 @@ def scrape_leboncoin(data: ScrapeRequest):
                 detailed_data = json.loads(json_data)
                 ad = detailed_data.get('props', {}).get('pageProps', {}).get('ad', {})
 
-                # Extract basic fields
+                # Extract fields
                 title = ad.get("subject", "").strip()
                 description = ad.get("body", "").strip()
                 price = (
@@ -76,8 +87,7 @@ def scrape_leboncoin(data: ScrapeRequest):
                     elif key == "square":
                         surface_area = value
 
-                # Final JSON structure
-                result = {
+                return {
                     "title": title,
                     "price": price,
                     "description": description,
@@ -89,13 +99,10 @@ def scrape_leboncoin(data: ScrapeRequest):
                     "images": images
                 }
 
-                return result
-
             else:
-                print(f"[Attempt {attempt+1}] HTTP {res.status_code} — retrying in {data.delay_between_retries}s")
-
+                print(f"[Attempt {attempt + 1}] HTTP {res.status_code} — retrying...")
         except Exception as e:
-            print(f"[Attempt {attempt+1}] Error: {e} — retrying in {data.delay_between_retries}s")
+            print(f"[Attempt {attempt + 1}] Error: {e} — retrying...")
 
         attempt += 1
         time.sleep(data.delay_between_retries)

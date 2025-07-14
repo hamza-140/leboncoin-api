@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 import urllib3
 
-# Load .env if exists (for local development)
 load_dotenv()
 
 urllib3.disable_warnings()
@@ -19,14 +18,16 @@ app = FastAPI()
 class ScrapeRequest(BaseModel):
     url: HttpUrl
     max_retries: int = 5
-    delay_between_retries: int = 5  # seconds
+    delay_between_retries: int = 5  
 
+
+@app.get("/")
+async def root():
+    return {"message": "leboncoin Api is working!"}
 
 @app.post("/scrape")
 def scrape_leboncoin(data: ScrapeRequest):
     url = str(data.url)
-
-    # Load proxy from environment variable
     proxy_url = os.environ.get("ZYTE_PROXY_URL")
     if not proxy_url:
         raise HTTPException(status_code=500, detail="ZYTE_PROXY_URL not set in environment.")
@@ -61,8 +62,6 @@ def scrape_leboncoin(data: ScrapeRequest):
 
                 detailed_data = json.loads(json_data)
                 ad = detailed_data.get('props', {}).get('pageProps', {}).get('ad', {})
-
-                # Extract fields
                 title = ad.get("subject", "").strip()
                 description = ad.get("body", "").strip()
                 price = (
@@ -71,8 +70,6 @@ def scrape_leboncoin(data: ScrapeRequest):
                     else ad.get("price", None)
                 )
                 images = ad.get('images', {}).get('urls', [])
-
-                # Extract detailed attributes
                 energy_class = ""
                 rooms = ""
                 surface_area = ""
